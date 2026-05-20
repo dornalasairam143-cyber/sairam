@@ -62,20 +62,17 @@ def process_pdf(pdf_bytes):
                 annot.update()
                 continue
             
-            # --- STRICT PATTERN TO IGNORE ALL NUMERICAL POINTS ---
+            # --- PRECISION PATTERN FILTER ---
             is_missing_space = False
             
-            # 1. First, check if the string contains a punctuation mark directly touching letters
-            if re.search(r"[A-Za-z]+[, \.][A-Za-z]+", word_str) or re.search(r"[A-Za-z]+[,\.]", word_str) or re.search(r"[,\.][A-Za-z]+", word_str):
+            # This expression matches ONLY when letters are directly on BOTH sides of a comma or period
+            # Examples it will catch: "word,word", "end.The", "test,item"
+            # Examples it will IGNORE: "DETAILS,", "TENTATIVE.", "1.5", "06.28.2025"
+            if re.search(r"[A-Za-z]+[,\.][A-Za-z]+", word_str):
                 
-                # 2. Strict Filter: If the string is a date, decimal point, percentage, or mathematical code, IGNORE it.
-                # This drops matches like "06.28.2025", "1.5", "45%", "7-16", "04/24/"
+                # Strict Numerical Safety Filter (skips calculation points or dashes)
                 if not re.search(r"\d+[\.,/\-]\d+", word_str):
-                    
-                    # 3. Double Check: Ensure there is actually alpha text present next to the punctuation mark
-                    # (This prevents lone numbers or symbols from turning yellow)
-                    if re.search(r"[A-Za-z]", word_str):
-                        is_missing_space = True
+                    is_missing_space = True
             
             if is_missing_space:
                 annot = page.add_highlight_annot(word_rect)
@@ -91,7 +88,7 @@ def process_pdf(pdf_bytes):
 uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
 
 if uploaded_file is not None:
-    st.info("🔄 Processing PDF with updated pattern filtering... Please wait.")
+    st.info("🔄 Processing PDF with corrected punctuation filtering... Please wait.")
     
     try:
         processed_pdf_bytes = process_pdf(uploaded_file.read())
