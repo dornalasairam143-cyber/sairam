@@ -1,18 +1,18 @@
 import os
 import shutil
-import subprocess
 import time
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
-# Hide tkinter window
+# ------------------------
+# Select Server File
+# ------------------------
+
 root = tk.Tk()
 root.withdraw()
 
-print("Select the Excel or PDF file from the server.")
-
 SERVER_FILE = filedialog.askopenfilename(
-    title="Select Server File",
+    title="Select Server Excel/PDF File",
     filetypes=[
         ("Excel Files", "*.xls *.xlsx *.xlsm"),
         ("PDF Files", "*.pdf"),
@@ -20,12 +20,19 @@ SERVER_FILE = filedialog.askopenfilename(
     ]
 )
 
-if SERVER_FILE == "":
-    print("No file selected.")
-    input("Press Enter to exit...")
+if not SERVER_FILE:
     raise SystemExit
 
-LOCAL_FOLDER = os.path.join(os.environ["USERPROFILE"], "Documents", "LauncherFiles")
+# ------------------------
+# Local Folder
+# ------------------------
+
+LOCAL_FOLDER = os.path.join(
+    os.environ["USERPROFILE"],
+    "Documents",
+    "LauncherFiles"
+)
+
 os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
 LOCAL_FILE = os.path.join(
@@ -33,26 +40,79 @@ LOCAL_FILE = os.path.join(
     os.path.basename(SERVER_FILE)
 )
 
-print("Copying file to local PC...")
-shutil.copy2(SERVER_FILE, LOCAL_FILE)
+# ------------------------
+# Copy to Local
+# ------------------------
 
-print("Opening file...")
+try:
+    shutil.copy2(SERVER_FILE, LOCAL_FILE)
+except Exception as e:
+    messagebox.showerror(
+        "Copy Error",
+        str(e)
+    )
+    raise SystemExit
+
+# ------------------------
+# Open File
+# ------------------------
 
 os.startfile(LOCAL_FILE)
 
-print("Waiting for you to close the file...")
+messagebox.showinfo(
+    "Launcher",
+    "Edit the file.\n\nSave it.\n\nClose Excel.\n\nThe launcher will automatically upload it back to the server."
+)
+
+# ------------------------
+# Wait until file released
+# ------------------------
 
 while True:
+
     try:
-        os.rename(LOCAL_FILE, LOCAL_FILE)
+        with open(LOCAL_FILE, "a"):
+            pass
         break
+
     except PermissionError:
         time.sleep(2)
 
-print("Uploading file back to server...")
+# ------------------------
+# Upload Back
+# ------------------------
 
-shutil.copy2(LOCAL_FILE, SERVER_FILE)
+MAX_RETRY = 10
 
-print("Done!")
+for i in range(MAX_RETRY):
 
-input("Press Enter to exit...")
+    try:
+
+        shutil.copy2(
+            LOCAL_FILE,
+            SERVER_FILE
+        )
+
+        messagebox.showinfo(
+            "Success",
+            "Server file updated successfully."
+        )
+
+        raise SystemExit
+
+    except PermissionError:
+
+        time.sleep(2)
+
+    except Exception as e:
+
+        if i == MAX_RETRY - 1:
+
+            messagebox.showerror(
+                "Upload Failed",
+                str(e)
+            )
+
+            raise SystemExit
+
+        time.sleep(2)
