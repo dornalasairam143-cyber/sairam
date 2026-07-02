@@ -1,118 +1,152 @@
 import os
-import shutil
+import sys
 import time
+import shutil
+import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-# ------------------------
-# Select Server File
-# ------------------------
+# -------------------------------------------------
+# SINGLE INSTANCE
+# -------------------------------------------------
 
-root = tk.Tk()
-root.withdraw()
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "DashboardLauncher.lock")
 
-SERVER_FILE = filedialog.askopenfilename(
-    title="Select Server Excel/PDF File",
-    filetypes=[
-        ("Excel Files", "*.xls *.xlsx *.xlsm"),
-        ("PDF Files", "*.pdf"),
-        ("All Files", "*.*")
-    ]
-)
+if os.path.exists(LOCK_FILE):
+    messagebox.showwarning(
+        "Launcher",
+        "Launcher is already running."
+    )
+    sys.exit()
 
-if not SERVER_FILE:
-    raise SystemExit
-
-# ------------------------
-# Local Folder
-# ------------------------
-
-LOCAL_FOLDER = os.path.join(
-    os.environ["USERPROFILE"],
-    "Documents",
-    "LauncherFiles"
-)
-
-os.makedirs(LOCAL_FOLDER, exist_ok=True)
-
-LOCAL_FILE = os.path.join(
-    LOCAL_FOLDER,
-    os.path.basename(SERVER_FILE)
-)
-
-# ------------------------
-# Copy to Local
-# ------------------------
+open(LOCK_FILE, "w").close()
 
 try:
-    shutil.copy2(SERVER_FILE, LOCAL_FILE)
-except Exception as e:
-    messagebox.showerror(
-        "Copy Error",
-        str(e)
+
+    # -------------------------------------------------
+    # ROOT
+    # -------------------------------------------------
+
+    root = tk.Tk()
+    root.withdraw()
+
+    # -------------------------------------------------
+    # FILE PICKER
+    # -------------------------------------------------
+
+    SERVER_FILE = filedialog.askopenfilename(
+        title="Select Server Excel / PDF File",
+        filetypes=[
+            ("Excel Files", "*.xls *.xlsx *.xlsm"),
+            ("PDF Files", "*.pdf"),
+            ("All Files", "*.*")
+        ]
     )
-    raise SystemExit
 
-# ------------------------
-# Open File
-# ------------------------
+    if not SERVER_FILE:
+        sys.exit()
 
-os.startfile(LOCAL_FILE)
+    # -------------------------------------------------
+    # LOCAL FOLDER
+    # -------------------------------------------------
 
-messagebox.showinfo(
-    "Launcher",
-    "Edit the file.\n\nSave it.\n\nClose Excel.\n\nThe launcher will automatically upload it back to the server."
-)
+    LOCAL_FOLDER = os.path.join(
+        os.environ["USERPROFILE"],
+        "Documents",
+        "LauncherFiles"
+    )
 
-# ------------------------
-# Wait until file released
-# ------------------------
+    os.makedirs(
+        LOCAL_FOLDER,
+        exist_ok=True
+    )
 
-while True:
+    LOCAL_FILE = os.path.join(
+        LOCAL_FOLDER,
+        os.path.basename(SERVER_FILE)
+    )
 
-    try:
-        with open(LOCAL_FILE, "a"):
-            pass
-        break
-
-    except PermissionError:
-        time.sleep(2)
-
-# ------------------------
-# Upload Back
-# ------------------------
-
-MAX_RETRY = 10
-
-for i in range(MAX_RETRY):
+    # -------------------------------------------------
+    # COPY TO LOCAL
+    # -------------------------------------------------
 
     try:
 
         shutil.copy2(
-            LOCAL_FILE,
-            SERVER_FILE
+            SERVER_FILE,
+            LOCAL_FILE
         )
-
-        messagebox.showinfo(
-            "Success",
-            "Server file updated successfully."
-        )
-
-        raise SystemExit
-
-    except PermissionError:
-
-        time.sleep(2)
 
     except Exception as e:
 
-        if i == MAX_RETRY - 1:
+        messagebox.showerror(
+            "Copy Failed",
+            str(e)
+        )
 
-            messagebox.showerror(
-                "Upload Failed",
-                str(e)
+        sys.exit()
+
+    # -------------------------------------------------
+    # OPEN FILE
+    # -------------------------------------------------
+
+    os.startfile(LOCAL_FILE)
+
+    # -------------------------------------------------
+    # WAIT UNTIL USER CLOSES FILE
+    # -------------------------------------------------
+
+    while True:
+
+        try:
+
+            with open(LOCAL_FILE, "a"):
+                pass
+
+            break
+
+        except PermissionError:
+
+            time.sleep(2)
+
+    # -------------------------------------------------
+    # UPLOAD BACK
+    # -------------------------------------------------
+
+    RETRY = 30
+
+    for i in range(RETRY):
+
+        try:
+
+            shutil.copy2(
+                LOCAL_FILE,
+                SERVER_FILE
             )
 
-            raise SystemExit
+            messagebox.showinfo(
+                "Success",
+                "Server file updated successfully."
+            )
 
-        time.sleep(2)
+            break
+
+        except PermissionError:
+
+            time.sleep(2)
+
+        except Exception:
+
+            time.sleep(2)
+
+            if i == RETRY - 1:
+
+                messagebox.showerror(
+                    "Upload Failed",
+                    "Unable to update the server file."
+                )
+
+finally:
+
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
