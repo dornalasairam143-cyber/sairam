@@ -14,7 +14,6 @@ if exist "Dashboard Launcher.spec" del /f /q "Dashboard Launcher.spec"
 pyinstaller ^
 --onefile ^
 --windowed ^
---clean ^
 --icon=launcher.ico ^
 --name="Dashboard Launcher" ^
 launcher.py
